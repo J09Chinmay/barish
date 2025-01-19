@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventory Page</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      select,
+      input,
+      button {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 10px;
+        text-align: left;
+      }
+      th {
+        background-color: #f4f4f4;
+      }
+      .actions {
+        margin-top: 20px;
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Inventory Management</h1>
+      <div class="form-group">
+        <label for="dateRange">Month</label>
+        <input type="input" id="startDate" placeholder="Start Month" />
+      </div>
+      <div class="form-group">
+        <label for="schemaName">Schema Name</label>
+        <select id="schemaName">
+          <option value="AAY">AAY</option>
+          <option value="PHH">PHH</option>
+          <option value="SFSS">SFSS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="pdsItemName">PDS Item Name</label>
+        <select id="pdsItemName">
+          <option value="Rice">Rice</option>
+          <option value="Wheat">Wheat</option>
+          <option value="K.Oil">K.Oil</option>
+        </select>
+      </div>
+
+      <table id="transactionTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Opening Balance</th>
+            <th>Receipt</th>
+            <th>Total</th>
+            <th>Cards</th>
+            <th>Quantity</th>
+            <th>Closing Balance</th>
+            <th>Remark</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td><input type="date" /></td>
+                <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+                <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+                <td><input type="number" disabled /></td>
+                <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+                <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+                <td><input type="number" disabled /></td>
+                <td><input type="text" /></td>
+                <td><button onclick="deleteRow(this)">Delete</button></td>
+              </tr>
+              
+        </tbody>
+      </table>
+      <button onclick="addRow()">Add New Row</button>
+      <div class="actions">
+        <button onclick="generatePDF()">Generate PDF</button>
+      </div>
+    </div>
+
+    <script>
+        function addRow() {
+            const table = document
+              .getElementById("transactionTable")
+              .getElementsByTagName("tbody")[0];
+            const row = table.insertRow();
+            row.innerHTML = `
+              <td>${table.rows.length}</td>
+              <td><input type="date" /></td>
+              <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+              <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+              <td><input type="number" disabled /></td>
+              <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+              <td><input type="number" oninput="calculateRow(this)" onchange="calculateRow(this)" /></td>
+              <td><input type="number" disabled /></td>
+              <td><input type="text" /></td>
+              <td><button onclick="deleteRow(this)">Delete</button></td>
+            `;
+          }
+          
+
+      function deleteRow(button) {
+        const row = button.parentElement.parentElement;
+        row.remove();
+        updateRowNumbers();
+      }
+
+      function updateRowNumbers() {
+        const rows = document.querySelectorAll("#transactionTable tbody tr");
+        rows.forEach((row, index) => {
+          row.cells[0].innerText = index + 1;
+        });
+      }
+
+      function calculateRow(input) {
+        const row = input.parentElement.parentElement;
+      
+        // Get the schemaName value
+        const schemaName = document.getElementById("schemaName").value;
+      
+        // Get input values from the row
+        const openingBalance =
+          parseFloat(row.cells[2].querySelector("input").value) || 0;
+        const receipt =
+          parseFloat(row.cells[3].querySelector("input").value) || 0;
+        const cards =
+          parseFloat(row.cells[5].querySelector("input").value) || 0;
+      
+        // Calculate Quantity based on schemaName
+        let quantity;
+        if (schemaName === "AAY") {
+          quantity = cards * 0.35;
+          row.cells[6].querySelector("input").value = quantity.toFixed(2);
+        } else {
+          quantity = parseFloat(row.cells[6].querySelector("input").value) || 0;
+        }
+
+      
+        // Calculate Total and Closing Balance
+        const total = openingBalance + receipt;
+        const closingBalance = total - quantity;
+      
+        // Update Total and Closing Balance
+        row.cells[4].querySelector("input").value = total.toFixed(2);
+        row.cells[7].querySelector("input").value = closingBalance.toFixed(2);
+      }
+      
+
+      async function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Define the local image URL
+        const imageURL = "./image.png";
+
+        // Create a new Image object
+        const img = new Image();
+        img.src = imageURL;
+
+        // Once the image loads, add it to the PDF
+        img.onload = function () {
+          const pageWidth = doc.internal.pageSize.width;
+          const pageHeight = doc.internal.pageSize.height;
+
+          // Define the image width and height (resize as needed)
+          const imgWidth = 40; // Smaller image width
+          const imgHeight = 40; // Smaller image height
+
+          // Calculate the position to place the image in the top-right corner
+          const xPosition = pageWidth - imgWidth - 10; // 10px margin from the right edge
+          const yPosition = 10; // 10px margin from the top edge
+
+          // Add the image to the PDF
+          doc.addImage(img, "PNG", xPosition, yPosition, imgWidth, imgHeight);
+
+          // Get values from dropdowns
+          const schemaName = document.getElementById("schemaName").value;
+          const pdsItemName = document.getElementById("pdsItemName").value;
+          const startDate = document.getElementById("startDate").value;
+
+          // Add title and dropdown values to the PDF
+          doc.text("Inventory Report", 14, 10);
+          doc.setFontSize(12);
+          doc.text(`Month: ${startDate}`, 14, 20);
+          doc.text(`Scheme Name: ${schemaName}`, 14, 30);
+          doc.text(`PDS Item Name: ${pdsItemName}`, 14, 40);
+          doc.text(`F.P.S Code No. : 0210P072`, 14, 50);
+          doc.text(`Dealer Name: Ramesh Chandra Behera`, 14, 60);
+          // Extract table data
+          const table = document.getElementById("transactionTable");
+          const rows = [...table.rows].slice(1); // Skip the header row
+
+          const tableData = rows.map((row) => {
+            const cells = row.querySelectorAll("input");
+            return [
+              row.cells[0].innerText, // Row number
+              cells[0].value, // Date
+              cells[1].value, // Opening Balance
+              cells[2].value, // Receipt
+              { content: cells[3].value, styles: { fillColor: [255, 255, 0] } }, // Yellow for Total
+              cells[4].value,
+              cells[5].value,
+              { content: cells[6].value, styles: { fillColor: [0, 255, 0] } }, // Closing Balance
+              cells[7].value, // Remark
+            ];
+          });
+
+          // Add table to the PDF
+          doc.autoTable({
+            head: [
+              [
+                "#",
+                "Date",
+                "Opening Balance",
+                "Receipt",
+                "Total",
+                "Cards",
+                "Quantity",
+                "Closing Balance",
+                "Remark",
+              ],
+            ],
+            body: tableData,
+            startY: 70,
+            headStyles: { fillColor: [0, 128, 128] }, // Teal color for the header row
+          });
+
+          // Save the PDF
+          doc.save("inventory_report.pdf");
+        };
+
+        img.onerror = function () {
+          console.error("Failed to load the image at", imageURL);
+        };
+      }
+    </script>
+  </body>
+</html>
